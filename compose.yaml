@@ -1,0 +1,62 @@
+name: hefesto-transferencias
+services:
+  permissions:
+    image: f0rc3/gokapi:v2.2.4@sha256:43cd93b9e1f02d760923f67f6e74e1c4d4a9cccb9b08fa42ad60770333f231eb
+    restart: "no"
+    user: "0"
+    entrypoint: [sh, -ec, 'chown -R 1000:1000 /data /config; chmod 700 /data /config']
+    volumes:
+      - data:/data
+      - config:/config
+  app:
+    image: f0rc3/gokapi:v2.2.4@sha256:43cd93b9e1f02d760923f67f6e74e1c4d4a9cccb9b08fa42ad60770333f231eb
+    restart: unless-stopped
+    user: "1000:1000"
+    depends_on:
+      permissions:
+        condition: service_completed_successfully
+    command: [sh, /opt/hefesto/start.sh]
+    environment:
+      TZ: America/Santiago
+      GOKAPI_CONFIG_DIR: /app/config
+      GOKAPI_CONFIG_FILE: config.json
+      GOKAPI_DATA_DIR: /app/data
+      GOKAPI_PORT: "53842"
+      GOKAPI_MAX_FILESIZE: ${MAX_FILESIZE_MB:-1024}
+      GOKAPI_MIN_FREE_SPACE: ${MIN_FREE_SPACE_MB:-2048}
+      GOKAPI_MAX_MEMORY_UPLOAD: "20"
+      GOKAPI_CHUNK_SIZE_MB: "20"
+      GOKAPI_MAX_PARALLEL_UPLOADS: "2"
+      GOKAPI_MIN_LENGTH_PASSWORD: "12"
+      GOKAPI_DISABLE_API_MENU: "true"
+      GOKAPI_GUEST_UPLOAD_BY_DEFAULT: "false"
+      TMPDIR: /app/data
+      HEFESTO_BOOTSTRAP: "false"
+      INITIAL_SETUP_COMPLETE: ${INITIAL_SETUP_COMPLETE:-false}
+    expose: ["53842"]
+    volumes:
+      - data:/app/data
+      - config:/app/config
+      - ./ops:/opt/hefesto:ro
+    healthcheck:
+      test: [CMD, curl, --fail, http://127.0.0.1:53842]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+  filetools:
+    image: f0rc3/gokapi:v2.2.4@sha256:43cd93b9e1f02d760923f67f6e74e1c4d4a9cccb9b08fa42ad60770333f231eb
+    profiles: [tools]
+    user: "0"
+    volumes:
+      - data:/data
+      - config:/config
+volumes:
+  data:
+    name: ${VOLUME_PREFIX:-hefesto-transferencias}-data
+  config:
+    name: ${VOLUME_PREFIX:-hefesto-transferencias}-config
